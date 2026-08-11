@@ -3,16 +3,18 @@ import type { FormEvent } from "react";
 import "./App.css";
 
 type Status = "todo" | "doing" | "done";
+type Priority = "low" | "medium" | "high";
 
 type Task = {
   id: string;
   title: string;
   notes: string;
   status: Status;
+  priority: Priority;
   createdAt: number;
 };
 
-const STORAGE_KEY = "taskflow.tasks.v1";
+const STORAGE_KEY = "taskflow.tasks.v2";
 
 const COLUMNS: { id: Status; label: string; hint: string }[] = [
   { id: "todo", label: "To do", hint: "Queued work" },
@@ -20,12 +22,15 @@ const COLUMNS: { id: Status; label: string; hint: string }[] = [
   { id: "done", label: "Done", hint: "Shipped" },
 ];
 
+const PRIORITIES: Priority[] = ["low", "medium", "high"];
+
 const SEED: Task[] = [
   {
     id: "seed-1",
     title: "Polish README",
     notes: "Add screenshots and a clear quick-start.",
     status: "todo",
+    priority: "medium",
     createdAt: Date.now() - 1000 * 60 * 60,
   },
   {
@@ -33,6 +38,7 @@ const SEED: Task[] = [
     title: "Ship public demo",
     notes: "Push taskflow to GitHub as a public repo.",
     status: "doing",
+    priority: "high",
     createdAt: Date.now() - 1000 * 60 * 30,
   },
 ];
@@ -42,7 +48,11 @@ function loadTasks(): Task[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return SEED;
     const parsed = JSON.parse(raw) as Task[];
-    return Array.isArray(parsed) ? parsed : SEED;
+    if (!Array.isArray(parsed)) return SEED;
+    return parsed.map((task) => ({
+      ...task,
+      priority: task.priority ?? "medium",
+    }));
   } catch {
     return SEED;
   }
@@ -52,10 +62,15 @@ function uid(): string {
   return crypto.randomUUID();
 }
 
+function priorityRank(priority: Priority): number {
+  return { high: 0, medium: 1, low: 2 }[priority];
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [priority, setPriority] = useState<Priority>("medium");
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -64,11 +79,18 @@ export default function App() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return tasks;
-    return tasks.filter(
-      (task) =>
-        task.title.toLowerCase().includes(q) ||
-        task.notes.toLowerCase().includes(q),
+    const list = !q
+      ? tasks
+      : tasks.filter(
+          (task) =>
+            task.title.toLowerCase().includes(q) ||
+            task.notes.toLowerCase().includes(q),
+        );
+
+    return [...list].sort(
+      (a, b) =>
+        priorityRank(a.priority) - priorityRank(b.priority) ||
+        b.createdAt - a.createdAt,
     );
   }, [tasks, query]);
 
@@ -83,17 +105,30 @@ export default function App() {
         title: cleanTitle,
         notes: notes.trim(),
         status: "todo",
+        priority,
         createdAt: Date.now(),
       },
       ...current,
     ]);
     setTitle("");
     setNotes("");
+    setPriority("medium");
   }
 
   function moveTask(id: string, status: Status) {
     setTasks((current) =>
       current.map((task) => (task.id === id ? { ...task, status } : task)),
+    );
+  }
+
+  function cyclePriority(id: string) {
+    setTasks((current) =>
+      current.map((task) => {
+        if (task.id !== id) return task;
+        const index = PRIORITIES.indexOf(task.priority);
+        const next = PRIORITIES[(index + 1) % PRIORITIES.length];
+        return { ...task, priority: next };
+      }),
     );
   }
 
@@ -103,6 +138,18 @@ export default function App() {
 
   function clearDone() {
     setTasks((current) => current.filter((task) => task.status !== "done"));
+  }
+
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(tasks, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "taskflow-export.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   const counts = {
@@ -119,7 +166,8 @@ export default function App() {
           <h1>Taskflow</h1>
           <p className="lede">
             A lightweight kanban board that lives in your browser. Add work,
-            move it across columns, and keep momentum without an account.
+            set priority, move it across columns, and keep momentum without an
+            account.
           </p>
         </div>
 
@@ -160,6 +208,17 @@ export default function App() {
               maxLength={160}
             />
           </label>
+          <label>
+            Priority
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as Priority)}
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
           <button type="submit">Add task</button>
         </form>
 
@@ -172,6 +231,9 @@ export default function App() {
               placeholder="Filter by title or notes"
             />
           </label>
+          <button type="button" className="ghost" onClick={exportJson}>
+            Export JSON
+          </button>
           <button type="button" className="ghost" onClick={clearDone}>
             Clear done
           </button>
@@ -208,6 +270,14 @@ export default function App() {
                           ×
                         </button>
                       </div>
+                      <button
+                        type="button"
+                        className={`priority priority-${task.priority}`}
+                        onClick={() => cyclePriority(task.id)}
+                        aria-label={`Priority ${task.priority}, click to change`}
+                      >
+                        {task.priority}
+                      </button>
                       {task.notes ? <p>{task.notes}</p> : null}
                       <div className="moves">
                         {COLUMNS.filter((c) => c.id !== task.status).map(
