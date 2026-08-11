@@ -152,6 +152,43 @@ export default function App() {
     URL.revokeObjectURL(url);
   }
 
+  function importJson(file: File | null) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as Task[];
+        if (!Array.isArray(parsed)) {
+          window.alert("Invalid Taskflow export file.");
+          return;
+        }
+        const normalized = parsed
+          .filter((task) => task && typeof task.title === "string")
+          .map((task) => ({
+            id: typeof task.id === "string" ? task.id : uid(),
+            title: task.title.trim(),
+            notes: typeof task.notes === "string" ? task.notes : "",
+            status: (["todo", "doing", "done"] as Status[]).includes(task.status)
+              ? task.status
+              : ("todo" as Status),
+            priority: (["low", "medium", "high"] as Priority[]).includes(
+              task.priority,
+            )
+              ? task.priority
+              : ("medium" as Priority),
+            createdAt:
+              typeof task.createdAt === "number" ? task.createdAt : Date.now(),
+          }))
+          .filter((task) => task.title.length > 0);
+
+        setTasks(normalized);
+      } catch {
+        window.alert("Could not parse JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
   const counts = {
     todo: tasks.filter((t) => t.status === "todo").length,
     doing: tasks.filter((t) => t.status === "doing").length,
@@ -229,6 +266,18 @@ export default function App() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Filter by title or notes"
+            />
+          </label>
+          <label className="ghost file-button">
+            Import JSON
+            <input
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={(e) => {
+                importJson(e.target.files?.[0] ?? null);
+                e.currentTarget.value = "";
+              }}
             />
           </label>
           <button type="button" className="ghost" onClick={exportJson}>

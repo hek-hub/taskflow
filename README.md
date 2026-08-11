@@ -11,7 +11,7 @@ Add tasks, move them across **To do / Doing / Done**, search, and clear finished
 - Priority levels (`low` / `medium` / `high`)
 - Move tasks between columns
 - Search / filter
-- Export board as JSON
+- Export / import board as JSON
 - Persistent browser storage
 - Responsive layout
 
