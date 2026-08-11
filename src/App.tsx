@@ -66,6 +66,23 @@ function priorityRank(priority: Priority): number {
   return { high: 0, medium: 1, low: 2 }[priority];
 }
 
+function formatRelativeTime(timestamp: number, now = Date.now()): string {
+  const deltaSeconds = Math.round((timestamp - now) / 1000);
+  const abs = Math.abs(deltaSeconds);
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
+  if (abs < 60) return rtf.format(deltaSeconds, "second");
+  const minutes = Math.round(deltaSeconds / 60);
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
+  const hours = Math.round(deltaSeconds / 3600);
+  if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+  const days = Math.round(deltaSeconds / 86400);
+  if (Math.abs(days) < 30) return rtf.format(days, "day");
+  const months = Math.round(deltaSeconds / 2_592_000);
+  if (Math.abs(months) < 12) return rtf.format(months, "month");
+  return rtf.format(Math.round(deltaSeconds / 31_536_000), "year");
+}
+
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
   const [title, setTitle] = useState("");
@@ -137,6 +154,12 @@ export default function App() {
   }
 
   function clearDone() {
+    const doneCount = tasks.filter((task) => task.status === "done").length;
+    if (doneCount === 0) return;
+    const confirmed = window.confirm(
+      `Clear ${doneCount} done task${doneCount === 1 ? "" : "s"}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
     setTasks((current) => current.filter((task) => task.status !== "done"));
   }
 
@@ -319,14 +342,23 @@ export default function App() {
                           ×
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        className={`priority priority-${task.priority}`}
-                        onClick={() => cyclePriority(task.id)}
-                        aria-label={`Priority ${task.priority}, click to change`}
-                      >
-                        {task.priority}
-                      </button>
+                      <div className="task-meta">
+                        <button
+                          type="button"
+                          className={`priority priority-${task.priority}`}
+                          onClick={() => cyclePriority(task.id)}
+                          aria-label={`Priority ${task.priority}, click to change`}
+                        >
+                          {task.priority}
+                        </button>
+                        <time
+                          className="created"
+                          dateTime={new Date(task.createdAt).toISOString()}
+                          title={new Date(task.createdAt).toLocaleString()}
+                        >
+                          {formatRelativeTime(task.createdAt)}
+                        </time>
+                      </div>
                       {task.notes ? <p>{task.notes}</p> : null}
                       <div className="moves">
                         {COLUMNS.filter((c) => c.id !== task.status).map(

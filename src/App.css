@@ -254,8 +254,15 @@ button.ghost {
   font-size: 1.02rem;
 }
 
-.priority {
+.task-meta {
   margin-top: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.priority {
   display: inline-flex;
   border-radius: 999px;
   padding: 0.2rem 0.65rem;
@@ -266,6 +273,11 @@ button.ghost {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
+}
+
+.created {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .priority-high {

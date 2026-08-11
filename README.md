@@ -9,6 +9,8 @@ Add tasks, move them across **To do / Doing / Done**, search, and clear finished
 - Three-column board
 - Create tasks with optional notes
 - Priority levels (`low` / `medium` / `high`)
+- Relative “created” timestamps on each card
+- Confirm before clearing done tasks
 - Move tasks between columns
 - Search / filter
 - Export / import board as JSON
